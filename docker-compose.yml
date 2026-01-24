@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # 1. The Database
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: compliance_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=compliance_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. The Python Agent (AI Microservice)
+  python-agent:
+    build: ./agent-python  # <--- Points to your Python folder
+    container_name: python_agent
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./agent-python/.env # Reads your OpenAI Key
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+  # 3. The Java Backend (Enterprise Gateway)
+  java-backend:
+    build: ./backend-java
+    container_name: java_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - python-agent
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/compliance_db
+      - PYTHON_AGENT_URL=http://python-agent:8000/api/graph # <--- Internal Docker Network URL!
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+volumes:
+  postgres_data:

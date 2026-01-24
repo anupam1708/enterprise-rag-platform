@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  python-agent:
+    build: .
+    container_name: python_agent_service
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env  # Injects your OpenAI/LangSmith keys automatically
+    volumes:
+      - .:/app  # HOT RELOAD: Maps your code folder to the container
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
