@@ -1,0 +1,33 @@
+# --- App Config ---
+spring.application.name=compliance-rag-service
+server.port=8081
+
+# --- File Upload Limits ---
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+
+# --- OpenAI Configuration ---
+# ?? Replace this with your actual key, or set env var: export OPENAI_API_KEY=sk-...
+spring.ai.openai.api-key=INSERT_KEY_HERE
+spring.ai.openai.chat.options.model=gpt-4-turbo
+spring.ai.openai.chat.options.temperature=0.3
+# (Low temperature = more factual/deterministic for compliance)
+
+# --- Database (Postgres with pgvector) ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/compliance_db
+spring.datasource.username=postgres
+spring.datasource.password=password
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# --- JPA / Hibernate Configuration ---
+# This tells Hibernate to automatically create/update tables based on your Entity classes
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# --- Vector Store Configuration ---
+# This tells Spring AI to create the 'vector_store' table for you automatically
+spring.ai.vectorstore.pgvector.initialize-schema=true
+spring.ai.vectorstore.pgvector.index-type=HNSW
+spring.ai.vectorstore.pgvector.dimension=1536
+# (1536 is the dimension size for standard OpenAI embeddings)
