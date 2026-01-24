@@ -29,6 +29,7 @@ services:
     container_name: java_backend
     ports:
       - "8080:8080"
+    restart: always  
     depends_on:
       - postgres
       - python-agent
