@@ -23,6 +23,10 @@ services:
       - "8000:8000"
     env_file:
       - ./agent-python/.env # Reads your OpenAI Key
+    # DNS Configuration
+    dns:
+      - 8.8.8.8   # Google DNS
+      - 1.1.1.1   # Cloudflare DNS  
 
   # 3. The Java Backend (Enterprise Gateway)
   java-backend:
