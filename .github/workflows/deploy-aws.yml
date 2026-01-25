@@ -115,7 +115,7 @@ jobs:
             sleep 30
             
             echo "Deployment completed successfully!"
-EOF
+          EOF
           
           rm -f private_key.pem backend.env agent.env frontend.env
 
