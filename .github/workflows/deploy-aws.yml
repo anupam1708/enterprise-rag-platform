@@ -1,0 +1,122 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deployment
+          cp docker-compose.yml deployment/
+          cp -r monitoring deployment/
+          cp init-db.sql deployment/
+          cp .env.example deployment/.env
+          tar -czf deployment.tar.gz deployment/
+
+      - name: Copy files to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          
+          # Copy deployment package
+          scp -i private_key.pem -o StrictHostKeyChecking=no \
+            deployment.tar.gz ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/
+          
+          rm -f private_key.pem
+
+      - name: Deploy on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
+            # Extract deployment package
+            cd /home/${{ secrets.EC2_USER }}
+            tar -xzf deployment.tar.gz
+            cd deployment
+            
+            # Update environment variables
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            
+            # Pull latest images from GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker-compose pull
+            
+            # Stop existing containers
+            docker-compose down
+            
+            # Start updated containers
+            docker-compose up -d
+            
+            # Clean up old images
+            docker image prune -af
+            
+            # Health check
+            sleep 10
+            curl -f http://localhost:8080/actuator/health || exit 1
+            
+            echo "Deployment completed successfully!"
+          EOF
+          
+          rm -f private_key.pem
+
+      - name: Verify deployment
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          # Wait for services to be healthy
+          sleep 15
+          
+          # Check backend health
+          curl -f http://${EC2_HOST}:8080/actuator/health
+          
+          # Check frontend
+          curl -f http://${EC2_HOST}:3000
+          
+          echo "All services are healthy!"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment to ${{ github.event.inputs.environment || 'production' }} successful!"
+          else
+            echo "❌ Deployment to ${{ github.event.inputs.environment || 'production' }} failed!"
+          fi
