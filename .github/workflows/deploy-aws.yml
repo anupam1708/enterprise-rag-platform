@@ -69,21 +69,21 @@ jobs:
           chmod 600 private_key.pem
           
           # Create env files locally before SSH
-          cat > backend.env << EOF
-OPENAI_API_KEY=${OPENAI_API_KEY}
-JWT_SECRET=${JWT_SECRET}
-EOF
+          cat > backend.env << 'EOF'
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          JWT_SECRET=${JWT_SECRET}
+          EOF
 
-          cat > agent.env << EOF
-OPENAI_API_KEY=${OPENAI_API_KEY}
-LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=enterprise-rag-platform
-EOF
+          cat > agent.env << 'EOF'
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+          LANGCHAIN_TRACING_V2=true
+          LANGCHAIN_PROJECT=enterprise-rag-platform
+          EOF
 
-          cat > frontend.env << EOF
-NEXT_PUBLIC_API_URL=http://localhost:8080
-EOF
+          cat > frontend.env << 'EOF'
+          NEXT_PUBLIC_API_URL=http://localhost:8080
+          EOF
 
           # Copy env files to EC2
           scp -i private_key.pem -o StrictHostKeyChecking=no \
