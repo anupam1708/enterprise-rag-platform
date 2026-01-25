@@ -35,3 +35,16 @@ spring.ai.vectorstore.pgvector.initialize-schema=true
 spring.ai.vectorstore.pgvector.index-type=HNSW
 spring.ai.vectorstore.pgvector.dimension=1536
 # (1536 is the dimension size for standard OpenAI embeddings)
+
+# Python Agent Microservice
+python.agent.url=http://localhost:8000/api/graph
+
+# Circuit Breaker Configuration
+resilience4j.circuitbreaker.instances.pythonAgent.registerHealthIndicator=true
+resilience4j.circuitbreaker.instances.pythonAgent.slidingWindowSize=10
+resilience4j.circuitbreaker.instances.pythonAgent.failureRateThreshold=50
+resilience4j.circuitbreaker.instances.pythonAgent.waitDurationInOpenState=5s
+
+# --- JWT Configuration ---
+jwt.secret=YOUR_SECRET_KEY_HERE_CHANGE_IN_PRODUCTION
+jwt.expiration=86400000
