@@ -32,7 +32,7 @@ export default function ChatInterface() {
     setLoading(true)
 
     try {
-      const response = await axios.get(`${API_URL}/api/chat/agent`, {
+      const response = await axios.get(`${API_URL}/api/chat`, {
         params: { query: input },
         headers: {
           Authorization: `Bearer ${token}`,
