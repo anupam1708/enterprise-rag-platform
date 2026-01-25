@@ -39,10 +39,17 @@ public class User implements UserDetails {
     private Role role = Role.USER;
     
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
     
     @Column(name = "enabled")
     private boolean enabled = true;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
