@@ -62,32 +62,44 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
         run: |
           echo "$EC2_SSH_KEY" > private_key.pem
           chmod 600 private_key.pem
           
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
+          # Create env files locally before SSH
+          cat > backend.env << EOF
+OPENAI_API_KEY=${OPENAI_API_KEY}
+JWT_SECRET=${JWT_SECRET}
+EOF
+
+          cat > agent.env << EOF
+OPENAI_API_KEY=${OPENAI_API_KEY}
+LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=enterprise-rag-platform
+EOF
+
+          cat > frontend.env << EOF
+NEXT_PUBLIC_API_URL=http://localhost:8080
+EOF
+
+          # Copy env files to EC2
+          scp -i private_key.pem -o StrictHostKeyChecking=no \
+            backend.env agent.env frontend.env ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/
+          
+          # Deploy via SSH
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} bash -s << 'EOF'
             # Extract deployment package
-            cd /home/${{ secrets.EC2_USER }}
+            cd /home/${USER}
             tar -xzf deployment.tar.gz
             cd deployment
             
-            # Create environment files
-            cat > backend-java/.env << ENVFILE
-OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-JWT_SECRET=${{ secrets.JWT_SECRET }}
-ENVFILE
-            
-            cat > agent-python/.env << 'ENVFILE'
-OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY }}
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=enterprise-rag-platform
-ENVFILE
-            
-            cat > frontend-nextjs/.env.local << ENVFILE
-NEXT_PUBLIC_API_URL=http://localhost:8080
-ENVFILE
+            # Move env files to correct locations
+            mv ../backend.env backend-java/.env
+            mv ../agent.env agent-python/.env
+            mv ../frontend.env frontend-nextjs/.env.local
             
             # Stop existing containers
             docker-compose down || true
@@ -103,9 +115,9 @@ ENVFILE
             sleep 30
             
             echo "Deployment completed successfully!"
-          EOF
+EOF
           
-          rm -f private_key.pem
+          rm -f private_key.pem backend.env agent.env frontend.env
 
       - name: Verify deployment
         env:
@@ -117,8 +129,8 @@ ENVFILE
           chmod 600 private_key.pem
           
           # Check container status on EC2
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
-            cd /home/${{ secrets.EC2_USER }}/deployment
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} bash -s << 'EOF'
+            cd ${HOME}/deployment
             echo "Container status:"
             docker-compose ps
             
