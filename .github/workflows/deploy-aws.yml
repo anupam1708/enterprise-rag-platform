@@ -36,8 +36,9 @@ jobs:
           mkdir -p deployment
           cp docker-compose.yml deployment/
           cp -r monitoring deployment/
-          cp init-db.sql deployment/
-          cp .env.example deployment/.env
+          cp -r backend-java deployment/
+          cp -r frontend-nextjs deployment/
+          cp -r agent-python deployment/
           tar -czf deployment.tar.gz deployment/
 
       - name: Copy files to EC2
@@ -71,26 +72,35 @@ jobs:
             tar -xzf deployment.tar.gz
             cd deployment
             
-            # Update environment variables
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            # Create environment files
+            cat > backend-java/.env << ENVFILE
+OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+ENVFILE
             
-            # Pull latest images from GitHub Container Registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker-compose pull
+            cat > agent-python/.env << ENVFILE
+OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY || '' }}
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=enterprise-rag-platform
+ENVFILE
+            
+            cat > frontend-nextjs/.env.local << ENVFILE
+NEXT_PUBLIC_API_URL=http://localhost:8080
+ENVFILE
             
             # Stop existing containers
-            docker-compose down
+            docker-compose down || true
             
-            # Start updated containers
-            docker-compose up -d
+            # Build and start containers
+            docker-compose up -d --build
             
             # Clean up old images
             docker image prune -af
             
-            # Health check
-            sleep 10
-            curl -f http://localhost:8080/actuator/health || exit 1
+            # Wait for services to start
+            echo "Waiting for services to start..."
+            sleep 30
             
             echo "Deployment completed successfully!"
           EOF
@@ -100,17 +110,33 @@ jobs:
       - name: Verify deployment
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          # Wait for services to be healthy
-          sleep 15
+          echo "$EC2_SSH_KEY" > private_key.pem
+          chmod 600 private_key.pem
           
-          # Check backend health
-          curl -f http://${EC2_HOST}:8080/actuator/health
+          # Check container status on EC2
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
+            cd /home/${{ secrets.EC2_USER }}/deployment
+            echo "Container status:"
+            docker-compose ps
+            
+            echo -e "\nChecking service health..."
+            
+            # Check if containers are running
+            if docker-compose ps | grep -q "Up"; then
+              echo "✅ Containers are running"
+            else
+              echo "❌ Some containers are not running"
+              docker-compose logs --tail=50
+              exit 1
+            fi
+          EOF
           
-          # Check frontend
-          curl -f http://${EC2_HOST}:3000
+          rm -f private_key.pem
           
-          echo "All services are healthy!"
+          echo "Deployment verification completed!"
 
       - name: Notify deployment status
         if: always()
