@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import axios from 'axios'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function DocumentUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const { token } = useAuth()
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -33,6 +35,7 @@ export default function DocumentUpload() {
       const response = await axios.post(`${API_URL}/api/ingest`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
         },
       })
 

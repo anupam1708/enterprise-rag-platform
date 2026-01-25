@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import axios from 'axios'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -13,6 +14,7 @@ export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const { token } = useAuth()
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -32,6 +34,9 @@ export default function ChatInterface() {
     try {
       const response = await axios.get(`${API_URL}/api/chat/agent`, {
         params: { query: input },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       const assistantMessage: Message = {
