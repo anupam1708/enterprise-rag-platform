@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'enterprise-rag-platform'
+    environment: 'production'
+
+# Alertmanager configuration (optional - for now just rules)
+rule_files:
+  - 'alerts.yml'
+
+scrape_configs:
+  # Java Backend (Spring Boot Actuator)
+  - job_name: 'spring-boot-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['java-backend:8080']
+        labels:
+          application: 'compliance-rag-service'
+          service: 'backend'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # PostgreSQL Exporter (optional - can add later)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']

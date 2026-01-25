@@ -1,0 +1,53 @@
+groups:
+  - name: application_alerts
+    interval: 30s
+    rules:
+      # Alert if service is down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+
+      # Alert if HTTP error rate is high
+      - alert: HighErrorRate
+        expr: rate(http_server_requests_seconds_count{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.application }}"
+          description: "Error rate is {{ $value }} on {{ $labels.uri }}"
+
+      # Alert if memory usage is high
+      - alert: HighMemoryUsage
+        expr: (jvm_memory_used_bytes / jvm_memory_max_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.application }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      # Alert if API response time is slow
+      - alert: SlowAPIResponse
+        expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow API response on {{ $labels.application }}"
+          description: "95th percentile response time is {{ $value }}s for {{ $labels.uri }}"
+
+      # Alert if database connection pool is exhausted
+      - alert: DatabaseConnectionPoolExhausted
+        expr: hikaricp_connections_active >= hikaricp_connections_max
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "All database connections are in use for {{ $labels.application }}"
