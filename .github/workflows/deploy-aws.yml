@@ -78,9 +78,9 @@ OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
 JWT_SECRET=${{ secrets.JWT_SECRET }}
 ENVFILE
             
-            cat > agent-python/.env << ENVFILE
+            cat > agent-python/.env << 'ENVFILE'
 OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY || '' }}
+LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY }}
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=enterprise-rag-platform
 ENVFILE
