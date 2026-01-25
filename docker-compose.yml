@@ -47,5 +47,16 @@ services:
       - PYTHON_AGENT_URL=http://python-agent:8000/api/graph
       - SPRING_AI_OPENAI_API_KEY=${OPENAI_API_KEY}
 
+  # 4. The Frontend (Next.js UI)
+  frontend:
+    build: ./frontend-nextjs
+    container_name: rag_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - java-backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://java-backend:8080
+
 volumes:
   postgres_data:
