@@ -31,11 +31,15 @@ services:
       - "8080:8080"
     restart: always  
     depends_on:
-      - postgres
-      - python-agent
+      postgres:
+        condition: service_started
+      python-agent:
+        condition: service_started
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/compliance_db
-      - PYTHON_AGENT_URL=http://python-agent:8000/api/graph # <--- Internal Docker Network URL!
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - PYTHON_AGENT_URL=http://python-agent:8000/api/graph
       - OPENAI_API_KEY=${OPENAI_API_KEY}
 
 volumes:
