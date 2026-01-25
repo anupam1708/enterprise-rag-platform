@@ -40,7 +40,7 @@ services:
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=password
       - PYTHON_AGENT_URL=http://python-agent:8000/api/graph
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SPRING_AI_OPENAI_API_KEY=${OPENAI_API_KEY}
 
 volumes:
   postgres_data:
