@@ -140,10 +140,9 @@ jobs:
             
             echo -e "\n🔍 Checking individual services..."
             
-            # Check each service (using correct service names with underscores)
-            for service in compliance_db java_backend rag_frontend python_agent prometheus grafana; do
-              STATUS=$(docker-compose ps ${service} 2>&1 | grep -iE "up[[:space:]]" || echo "")
-              if [ -n "$STATUS" ]; then
+            # Check each service using docker-compose service names (with hyphens)
+            for service in postgres python-agent java-backend frontend prometheus grafana; do
+              if docker-compose ps ${service} 2>&1 | grep -q "Up"; then
                 echo "✅ ${service}: Running"
               else
                 echo "❌ ${service}: Not running"
@@ -152,8 +151,8 @@ jobs:
               fi
             done
             
-            # Count running containers (more reliable method)
-            RUNNING=$(docker-compose ps 2>&1 | grep -iE "up[[:space:]]" | wc -l | tr -d ' ')
+            # Count running containers using docker ps (more reliable)
+            RUNNING=$(docker ps --filter "name=compliance_db\|java_backend\|python_agent\|rag_frontend\|prometheus\|grafana" --format "{{.Names}}" | wc -l | tr -d ' ')
             TOTAL=6
             echo -e "\n📈 Summary: ${RUNNING}/${TOTAL} containers running"
             
