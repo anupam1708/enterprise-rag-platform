@@ -70,19 +70,20 @@ jobs:
           
           # Create env files locally before SSH
           cat > backend.env << 'ENVEOF'
-OPENAI_API_KEY=${OPENAI_API_KEY}
-JWT_SECRET=${JWT_SECRET}
-ENVEOF
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          JWT_SECRET=${JWT_SECRET}
+          ENVEOF
 
           cat > agent.env << 'ENVEOF'
-OPENAI_API_KEY=${OPENAI_API_KEY}
-LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=enterprise-rag-platform
-ENVEOF
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+          LANGCHAIN_TRACING_V2=true
+          LANGCHAIN_PROJECT=enterprise-rag-platform
+          ENVEOF
 
           cat > frontend.env << 'ENVEOF'
-NEXT_PUBLIC_API_URL=http://localhost:8080
+          NEXT_PUBLIC_API_URL=http://localhost:8080
+          ENVEOF
 ENVEOF
 
           # Copy env files to EC2
