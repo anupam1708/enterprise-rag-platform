@@ -63,27 +63,27 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
         run: |
           echo "$EC2_SSH_KEY" > private_key.pem
           chmod 600 private_key.pem
           
           # Create env files locally before SSH
-          cat > backend.env << 'EOF'
-          OPENAI_API_KEY=${OPENAI_API_KEY}
-          JWT_SECRET=${JWT_SECRET}
-          EOF
+          cat > backend.env << 'ENVEOF'
+OPENAI_API_KEY=${OPENAI_API_KEY}
+JWT_SECRET=${JWT_SECRET}
+ENVEOF
 
-          cat > agent.env << 'EOF'
-          OPENAI_API_KEY=${OPENAI_API_KEY}
-          LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
-          LANGCHAIN_TRACING_V2=true
-          LANGCHAIN_PROJECT=enterprise-rag-platform
-          EOF
+          cat > agent.env << 'ENVEOF'
+OPENAI_API_KEY=${OPENAI_API_KEY}
+LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=enterprise-rag-platform
+ENVEOF
 
-          cat > frontend.env << 'EOF'
-          NEXT_PUBLIC_API_URL=http://localhost:8080
-          EOF
+          cat > frontend.env << 'ENVEOF'
+NEXT_PUBLIC_API_URL=http://localhost:8080
+ENVEOF
 
           # Copy env files to EC2
           scp -i private_key.pem -o StrictHostKeyChecking=no \
