@@ -84,7 +84,6 @@ jobs:
           cat > frontend.env << 'ENVEOF'
           NEXT_PUBLIC_API_URL=http://localhost:8080
           ENVEOF
-ENVEOF
 
           # Copy env files to EC2
           scp -i private_key.pem -o StrictHostKeyChecking=no \
