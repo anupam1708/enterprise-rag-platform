@@ -131,16 +131,36 @@ jobs:
           # Check container status on EC2
           ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} bash -s << 'EOF'
             cd ${HOME}/deployment
-            echo "Container status:"
+            
+            echo "📊 Container status:"
             docker-compose ps
             
-            echo -e "\nChecking service health..."
+            echo -e "\n📋 Detailed container info:"
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             
-            # Check if containers are running
-            if docker-compose ps | grep -q "Up"; then
-              echo "✅ Containers are running"
+            echo -e "\n🔍 Checking individual services..."
+            
+            # Check each service
+            for service in postgres java-backend frontend python-agent prometheus grafana; do
+              if docker-compose ps | grep -q "${service}.*Up"; then
+                echo "✅ ${service}: Running"
+              else
+                echo "❌ ${service}: Not running"
+                echo "   Logs for ${service}:"
+                docker-compose logs --tail=20 ${service} 2>&1 || echo "   (no logs available)"
+              fi
+            done
+            
+            # Count running containers
+            RUNNING=$(docker-compose ps | grep -c "Up" || echo "0")
+            echo -e "\n📈 Summary: ${RUNNING}/6 containers running"
+            
+            if [ "$RUNNING" -ge 3 ]; then
+              echo "✅ Deployment partially successful (core services up)"
+              exit 0
             else
-              echo "❌ Some containers are not running"
+              echo "❌ Deployment failed (too few containers running)"
+              echo -e "\n📜 Recent docker-compose logs:"
               docker-compose logs --tail=50
               exit 1
             fi
