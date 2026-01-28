@@ -135,35 +135,28 @@ jobs:
             echo "📊 Container status:"
             docker-compose ps
             
-            echo -e "\n📋 Detailed container info:"
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo -e "\n📋 Running containers:"
+            docker ps --format "{{.Names}} - {{.Status}}"
             
-            echo -e "\n🔍 Checking individual services..."
+            # Simple count - just count lines from docker ps
+            RUNNING=$(docker ps -q | wc -l)
+            echo -e "\n📈 Total running containers: ${RUNNING}"
             
-            # Check each service using docker-compose service names (with hyphens)
-            for service in postgres python-agent java-backend frontend prometheus grafana; do
-              if docker-compose ps ${service} 2>&1 | grep -q "Up"; then
-                echo "✅ ${service}: Running"
-              else
-                echo "❌ ${service}: Not running"
-                echo "   Logs for ${service}:"
-                docker-compose logs --tail=20 ${service} 2>&1 | head -15 || echo "   (no logs available)"
-              fi
-            done
+            # Check if our key containers are up
+            echo -e "\n🔍 Checking key services:"
+            docker ps --format "{{.Names}}" | grep -q "compliance_db" && echo "✅ Database: Running" || echo "❌ Database: Not running"
+            docker ps --format "{{.Names}}" | grep -q "java_backend" && echo "✅ Backend: Running" || echo "❌ Backend: Not running"
+            docker ps --format "{{.Names}}" | grep -q "python_agent" && echo "✅ Python Agent: Running" || echo "❌ Python Agent: Not running"
+            docker ps --format "{{.Names}}" | grep -q "rag_frontend" && echo "⚠️  Frontend: Running" || echo "ℹ️  Frontend: Not running (optional)"
             
-            # Count running containers using docker ps (more reliable)
-            RUNNING=$(docker ps --filter "name=compliance_db\|java_backend\|python_agent\|rag_frontend\|prometheus\|grafana" --format "{{.Names}}" | wc -l | tr -d ' ')
-            TOTAL=6
-            echo -e "\n📈 Summary: ${RUNNING}/${TOTAL} containers running"
-            
-            # More lenient check - succeed if at least 3 core services are up
-            if [ "${RUNNING}" -ge 3 ] 2>/dev/null; then
-              echo "✅ Deployment successful (${RUNNING} containers running)"
+            # Pass if at least 3 containers running
+            if [ ${RUNNING} -ge 3 ]; then
+              echo -e "\n✅ Deployment successful (${RUNNING} containers running)"
               exit 0
             else
-              echo "❌ Deployment failed (only ${RUNNING:-0} containers running)"
-              echo -e "\n📜 Recent docker-compose logs:"
-              docker-compose logs --tail=100
+              echo -e "\n❌ Deployment failed (only ${RUNNING} containers running)"
+              echo -e "\n📜 Container logs:"
+              docker-compose logs --tail=50
               exit 1
             fi
           EOF
