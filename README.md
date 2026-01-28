@@ -115,16 +115,52 @@ You should see 4 containers running:
 
 ## API Endpoints
 
-### Chat
+### Chat Endpoints
+
+#### 1. Hybrid Chat (RAG + Agent)
+Checks vector database for context first. If no documents found, routes to Python LangGraph agent with web search.
+
+```bash
+GET /api/chat?query=your-question
+Authorization: Bearer <jwt-token>
+```
+
+**Behavior:**
+- ✅ Documents in vector DB → Uses RAG (vector search + LLM)
+- ❌ No documents → Routes to Python agent with DuckDuckGo search
+
+#### 2. Direct Agent Chat
+Always uses Python LangGraph agent with search tools, bypassing vector database.
+
 ```bash
 GET /api/chat/agent?query=your-question
+Authorization: Bearer <jwt-token>
 ```
+
+**Use Cases:**
+- General knowledge questions
+- Real-time information lookup
+- When you want to force web search
 
 ### Document Ingestion
 ```bash
-POST /api/ingest
+POST /api/ingest/upload
+Authorization: Bearer <jwt-token>
 Content-Type: multipart/form-data
 Body: file=document.pdf
+```
+
+### Authentication
+```bash
+# Register
+POST /api/auth/register
+Content-Type: application/json
+Body: {"username":"user","email":"user@example.com","password":"password123"}
+
+# Login
+POST /api/auth/login
+Content-Type: application/json
+Body: {"username":"user","password":"password123"}
 ```
 
 ## Development
