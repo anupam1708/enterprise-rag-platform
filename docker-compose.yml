@@ -50,7 +50,7 @@ services:
     build:
       context: ./frontend-nextjs
       args:
-        NEXT_PUBLIC_API_URL: http://3.131.250.245:8080
+        NEXT_PUBLIC_API_URL: https://hnsworld.ai
     container_name: rag_frontend
     ports:
       - "3000:3000"
