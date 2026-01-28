@@ -47,14 +47,17 @@ services:
 
   # 4. The Frontend (Next.js UI)
   frontend:
-    build: ./frontend-nextjs
+    build:
+      context: ./frontend-nextjs
+      args:
+        NEXT_PUBLIC_API_URL: http://3.131.250.245:8080
     container_name: rag_frontend
     ports:
       - "3000:3000"
     depends_on:
       - java-backend
     environment:
-      - NEXT_PUBLIC_API_URL=http://java-backend:8080
+      - NODE_ENV=production
 
   # 5. Prometheus (Metrics Collection)
   prometheus:
