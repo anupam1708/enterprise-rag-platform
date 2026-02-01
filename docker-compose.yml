@@ -21,6 +21,14 @@ services:
       - "8000:8000"
     env_file:
       - ./agent-python/.env # Reads your OpenAI Key
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=compliance_db
+    depends_on:
+      - postgres
     # DNS Configuration
     dns:
       - 8.8.8.8   # Google DNS

@@ -85,7 +85,15 @@ curl -X POST http://localhost:8000/api/graph \
   }'
 ```
 
-Expected: Answer about Paris population (not asking which city)
+Expected: Answer about Paris population (mentioning "Paris" or contextually answering about the French capital without asking which city)
+
+Example response:
+```json
+{
+  "answer": "As of the latest data, the population of Paris is approximately 2.2 million people within the city limits...",
+  "thread_id": "quick-test"
+}
+```
 
 ---
 

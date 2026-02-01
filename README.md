@@ -11,10 +11,11 @@ AI-powered compliance and knowledge management system with document ingestion, v
 - ✅ **State Persistence**: Conversations survive container restarts (PostgreSQL checkpointer)
 - ✅ **Time-Travel Debugging**: Rewind to any checkpoint, explore alternate paths
 - ✅ **Multi-Tenant Isolation**: Independent conversation threads per user
-- ✅ **Human-in-the-Loop Ready**: Pause/resume workflows for approval gates
+- ✅ **Human-in-the-Loop (HITL)**: Interrupt pattern for high-risk tool approvals
 - ✅ **Cognitive Architecture**: LangGraph with tool orchestration, not just simple search
 
-📖 **[Read the State Persistence Architecture Guide →](agent-python/STATE_PERSISTENCE_README.md)**
+📖 **[State Persistence Architecture Guide →](agent-python/STATE_PERSISTENCE_README.md)**  
+🔐 **[Human-in-the-Loop (HITL) Guide →](agent-python/HITL_README.md)**
 
 ---
 

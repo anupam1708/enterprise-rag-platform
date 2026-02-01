@@ -4,6 +4,7 @@ import os
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_core.utils.function_calling import convert_to_openai_function
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor, ToolInvocation
@@ -87,42 +88,15 @@ tool_executor = ToolExecutor(tools)
 HITL_TOOLS = ["buy_stock", "send_email", "delete_database_records"]
 
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-# We bind tools to the model so it knows they exist (modern API)
-# tool_choice="auto" means model decides when to use tools based on input
-model = model.bind_tools(tools, tool_choice="auto")
+# We bind tools to the model so it knows they exist
+model = model.bind_functions(tools)
 
 # 3. Define Nodes (The Workers)
 
 def call_model(state):
     """The Brain: Decides what to do next."""
     messages = state['messages']
-    
-    # Add system message to guide the agent
-    if not any(isinstance(m, type(messages[0])) and hasattr(m, 'type') and getattr(m, 'type', None) == 'system' for m in messages):
-        from langchain_core.messages import SystemMessage
-        system_msg = SystemMessage(content="""You are an AI assistant with tools. You MUST use tools directly - never ask for permission first.
-
-IMPORTANT RULES:
-1. When a user requests an action (buy stock, send email, delete records), call the tool IMMEDIATELY
-2. Do NOT say "I need your approval" or "Do you want to proceed" - just call the tool
-3. The system automatically handles approvals for sensitive operations
-4. You are expected to be proactive and use tools without hesitation
-
-Examples:
-- User: "Buy 100 shares of GOOGL at $150" → IMMEDIATELY call buy_stock(symbol="GOOGL", quantity=100, price=150.0)
-- User: "Send email to john@example.com saying hello" → IMMEDIATELY call send_email(...)
-- User: "Delete test records from users table" → IMMEDIATELY call delete_database_records(...)
-
-Do not overthink. Just use the tools.""")
-        messages = [system_msg] + messages
-        logger.info(f"📝 Added system message to guide tool usage")
-    
-    logger.info(f"🔄 Calling model with {len(messages)} messages")
     response = model.invoke(messages)
-    logger.info(f"📤 Model response type: {type(response)}, has tool_calls: {hasattr(response, 'tool_calls')}")
-    if hasattr(response, 'tool_calls'):
-        logger.info(f"🔧 Tool calls: {response.tool_calls}")
-    
     return {"messages": [response]}
 
 def call_tool(state):
@@ -134,20 +108,12 @@ def call_tool(state):
     messages = state['messages']
     last_message = messages[-1]
     
-    # Parse the tool call (modern format)
-    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-        tool_call = last_message.tool_calls[0]
-        action = ToolInvocation(
-            tool=tool_call["name"],
-            tool_input=tool_call["args"],
-        )
-    else:
-        # Fallback to old format if needed
-        function_call = last_message.additional_kwargs["function_call"]
-        action = ToolInvocation(
-            tool=function_call["name"],
-            tool_input=json.loads(function_call["arguments"]),
-        )
+    # Parse the tool call
+    function_call = last_message.additional_kwargs["function_call"]
+    action = ToolInvocation(
+        tool=function_call["name"],
+        tool_input=json.loads(function_call["arguments"]),
+    )
     
     # Check if this is a high-risk tool that was approved
     if action.tool in HITL_TOOLS:
@@ -160,18 +126,15 @@ def call_tool(state):
     response = tool_executor.invoke(action)
     
     # Create a message to send back to the Brain
-    from langchain_core.messages import ToolMessage
-    tool_message = ToolMessage(content=str(response), tool_call_id=tool_call.get("id", "default") if hasattr(last_message, 'tool_calls') else "default")
+    from langchain_core.messages import FunctionMessage
+    function_message = FunctionMessage(content=str(response), name=action.tool)
     
-    return {"messages": [tool_message]}
+    return {"messages": [function_message]}
 
 # 4. Define Logic (The Router)
 def should_continue(state):
     last_message = state['messages'][-1]
-    # If the LLM returned a tool call, go to "tools" (modern API)
-    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-        return "continue"
-    # Fallback to old function_call format
+    # If the LLM returned a function call, go to "tools"
     if "function_call" in last_message.additional_kwargs:
         return "continue"
     # Otherwise, stop
@@ -308,23 +271,6 @@ async def run_graph_agent(
     # The graph handles state loading/saving automatically
     result = app_graph.invoke(inputs, config=config)
     
-    # If HITL is enabled, check if we hit an interrupt
-    if enable_hitl:
-        state = app_graph.get_state(config)
-        logger.info(f"🛑 After invoke: state.next={state.next}")
-        if state.next:  # Paused at interrupt
-            # Extract pending tool call details
-            for msg in reversed(result['messages']):
-                if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                    tool_call = msg.tool_calls[0]
-                    logger.info(f"🎯 HITL PAUSED: Pending tool={tool_call['name']}")
-                    return {
-                        "answer": f"⏸️ WAITING FOR APPROVAL: I want to execute {tool_call['name']} with parameters: {tool_call['args']}",
-                        "pending_approval": True,
-                        "tool_name": tool_call['name'],
-                        "tool_input": tool_call['args']
-                    }
-    
     return result['messages'][-1].content
 
 async def check_pending_approval(thread_id: str):
@@ -340,52 +286,27 @@ async def check_pending_approval(thread_id: str):
     # Get the current state
     state = app_graph.get_state(config)
     
-    logger.info(f"🔍 Checking pending for thread {thread_id}: state.next={state.next}")
-    
     # Check if we're at an interrupt point
     if state.next:  # next contains the nodes that are ready to execute
         # We're paused before a node
         messages = state.values.get("messages", [])
-        logger.info(f"🔍 Found {len(messages)} messages in state")
         if messages:
             last_message = messages[-1]
-            logger.info(f"🔍 Last message type: {type(last_message)}, has tool_calls: {hasattr(last_message, 'tool_calls')}")
             
-            # Check for tool_calls (modern format)
-            if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-                tool_call = last_message.tool_calls[0]
-                tool_name = tool_call["name"]
-                tool_input = tool_call["args"]
-                
-                logger.info(f"✅ Found pending tool: {tool_name}")
-                
-                return {
-                    "status": "pending_approval",
-                    "tool_name": tool_name,
-                    "tool_input": tool_input,
-                    "thread_id": thread_id,
-                    "is_high_risk": tool_name in HITL_TOOLS,
-                    "next_node": state.next[0] if state.next else None
-                }
-            
-            # Fallback to old function_call format
-            elif hasattr(last_message, 'additional_kwargs') and "function_call" in last_message.additional_kwargs:
+            # Check if it's a tool call
+            if hasattr(last_message, 'additional_kwargs') and "function_call" in last_message.additional_kwargs:
                 function_call = last_message.additional_kwargs["function_call"]
                 tool_name = function_call["name"]
                 tool_input = json.loads(function_call["arguments"])
                 
-                logger.info(f"✅ Found pending tool (old format): {tool_name}")
-                
                 return {
                     "status": "pending_approval",
                     "tool_name": tool_name,
                     "tool_input": tool_input,
-                    "thread_id": thread_id,
                     "is_high_risk": tool_name in HITL_TOOLS,
                     "next_node": state.next[0] if state.next else None
                 }
     
-    logger.info(f"ℹ️  No pending approval for thread {thread_id}")
     return {"status": "not_waiting"}
 
 async def approve_and_continue(thread_id: str, approved: bool = True):
@@ -407,13 +328,13 @@ async def approve_and_continue(thread_id: str, approved: bool = True):
         logger.warning(f"❌ Tool execution REJECTED by human for thread: {thread_id}")
         
         from langchain_core.messages import AIMessage
-        rejection_msg = AIMessage(content="❌ Action cancelled by user. The requested operation was not executed.")
+        rejection_msg = AIMessage(content="The requested action was rejected by a human reviewer. I will not proceed with that action.")
         
         app_graph.update_state(config, {"messages": [rejection_msg]})
         
         return {
             "status": "rejected",
-            "message": "❌ Action cancelled by user. The requested operation was not executed."
+            "message": "Tool execution rejected by human"
         }
     
     # Approval: Continue execution
@@ -427,11 +348,34 @@ async def approve_and_continue(thread_id: str, approved: bool = True):
         "status": "approved",
         "result": result['messages'][-1].content
     }
-
+    
+    # Configuration for this execution thread
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+        }
+    }
+    
+    # If checkpoint_id provided, add it for time-travel
+    if checkpoint_id:
+        config["configurable"]["checkpoint_id"] = checkpoint_id
+        logger.info(f"🕰️ Time travel: resuming from checkpoint {checkpoint_id}")
+    
+    # Create input with the new message
+    inputs = {"messages": [HumanMessage(content=query)]}
+    
+    logger.info(f"🧠 Agent processing query for thread: {thread_id}")
+    
+    # Use invoke (sync) but wrap in async for FastAPI
+    # The graph handles state loading/saving automatically
+    result = app_graph.invoke(inputs, config=config)
+    
+    return result['messages'][-1].content
 
 async def get_conversation_history(thread_id: str, limit: int = 10):
     """
-    Retrieve conversation history for a thread.
+    Retrieve the conversation history for a thread.
+    This enables "context-aware" follow-up questions.
     
     Args:
         thread_id: The conversation thread
