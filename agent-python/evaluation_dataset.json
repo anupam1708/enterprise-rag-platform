@@ -1,0 +1,102 @@
+[
+  {
+    "question": "What is the CEO of Google?",
+    "expected_answer": "Sundar Pichai",
+    "category": "factual"
+  },
+  {
+    "question": "What is the capital of France?",
+    "expected_answer": "Paris",
+    "category": "factual"
+  },
+  {
+    "question": "Who wrote the novel '1984'?",
+    "expected_answer": "George Orwell",
+    "category": "factual"
+  },
+  {
+    "question": "What is the boiling point of water in Celsius?",
+    "expected_answer": "100",
+    "category": "factual"
+  },
+  {
+    "question": "What is the square root of 144?",
+    "expected_answer": "12",
+    "category": "math"
+  },
+  {
+    "question": "Calculate 25 * 4",
+    "expected_answer": "100",
+    "category": "math"
+  },
+  {
+    "question": "What is 15% of 200?",
+    "expected_answer": "30",
+    "category": "math"
+  },
+  {
+    "question": "What is the largest planet in our solar system?",
+    "expected_answer": "Jupiter",
+    "category": "science"
+  },
+  {
+    "question": "What is the chemical formula for water?",
+    "expected_answer": "H2O",
+    "category": "science"
+  },
+  {
+    "question": "How many continents are there?",
+    "expected_answer": "7",
+    "category": "geography"
+  },
+  {
+    "question": "What year did World War II end?",
+    "expected_answer": "1945",
+    "category": "history"
+  },
+  {
+    "question": "Who painted the Mona Lisa?",
+    "expected_answer": "Leonardo da Vinci",
+    "category": "art"
+  },
+  {
+    "question": "What is the speed of light in vacuum?",
+    "expected_answer": "299,792,458 meters per second",
+    "category": "physics"
+  },
+  {
+    "question": "What is the currency of Japan?",
+    "expected_answer": "Yen",
+    "category": "economics"
+  },
+  {
+    "question": "How many bytes are in a megabyte?",
+    "expected_answer": "1,048,576",
+    "category": "technology"
+  },
+  {
+    "question": "What is the tallest mountain in the world?",
+    "expected_answer": "Mount Everest",
+    "category": "geography"
+  },
+  {
+    "question": "Who developed the theory of relativity?",
+    "expected_answer": "Albert Einstein",
+    "category": "science"
+  },
+  {
+    "question": "What is the smallest prime number?",
+    "expected_answer": "2",
+    "category": "math"
+  },
+  {
+    "question": "What is the main programming language for Android development?",
+    "expected_answer": "Kotlin",
+    "category": "technology"
+  },
+  {
+    "question": "How many days are in a leap year?",
+    "expected_answer": "366",
+    "category": "general"
+  }
+]

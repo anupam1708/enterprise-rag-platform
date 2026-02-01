@@ -13,9 +13,11 @@ AI-powered compliance and knowledge management system with document ingestion, v
 - ✅ **Multi-Tenant Isolation**: Independent conversation threads per user
 - ✅ **Human-in-the-Loop (HITL)**: Interrupt pattern for high-risk tool approvals
 - ✅ **Cognitive Architecture**: LangGraph with tool orchestration, not just simple search
+- ✅ **LLM Evaluation**: LangSmith integration with 20-question regression testing in CI/CD
 
 📖 **[State Persistence Architecture Guide →](agent-python/STATE_PERSISTENCE_README.md)**  
-🔐 **[Human-in-the-Loop (HITL) Guide →](agent-python/HITL_README.md)**
+🔐 **[Human-in-the-Loop (HITL) Guide →](agent-python/HITL_README.md)**  
+📊 **[LangSmith Evaluation & Observability →](agent-python/EVALUATION_README.md)**
 
 ---
 
