@@ -1,6 +1,22 @@
 # Enterprise RAG Platform 🤖
 
-AI-powered compliance and knowledge management system with document ingestion, vector search, and intelligent chat capabilities.
+> **AI Solutions Architect Portfolio Project**  
+> Production-grade AI system demonstrating enterprise-ready agentic architecture
+
+AI-powered compliance and knowledge management system with document ingestion, vector search, and intelligent chat capabilities featuring **stateful agents with PostgreSQL-backed state persistence**.
+
+## 🚀 **Key Architectural Highlights**
+
+### **Production-Grade Agentic Patterns**
+- ✅ **State Persistence**: Conversations survive container restarts (PostgreSQL checkpointer)
+- ✅ **Time-Travel Debugging**: Rewind to any checkpoint, explore alternate paths
+- ✅ **Multi-Tenant Isolation**: Independent conversation threads per user
+- ✅ **Human-in-the-Loop Ready**: Pause/resume workflows for approval gates
+- ✅ **Cognitive Architecture**: LangGraph with tool orchestration, not just simple search
+
+📖 **[Read the State Persistence Architecture Guide →](agent-python/STATE_PERSISTENCE_README.md)**
+
+---
 
 ## Architecture
 
@@ -38,13 +54,17 @@ AI-powered compliance and knowledge management system with document ingestion, v
                         ▼               ▼               ▼
             ┌─────────────────┐ ┌──────────────┐ ┌────────────┐
             │ Python Agent    │ │  PostgreSQL  │ │  OpenAI    │
-            │ LangGraph       │ │  + pgvector  │ │    API     │
+            │ LangGraph v2    │ │  + pgvector  │ │    API     │
             │ (Port 8000)     │ │  (Port 5432) │ │            │
             │                 │ │              │ │            │
             │ • LangChain     │ │ • User DB    │ │ • GPT-4    │
             │ • DuckDuckGo    │ │ • Vectors    │ │ • Embed    │
-            │ • Tool Calling  │ │ • Audit Logs │ │            │
+            │ • State Persist │ │ • Checkpoints│ │            │
             └─────────────────┘ └──────────────┘ └────────────┘
+                    ↑                   ↑
+                    └───────────────────┘
+                      AsyncPostgresSaver
+                    (Time-Travel Layer)
 ```
 
 ### Data Flow
