@@ -41,6 +41,8 @@ services:
     ports:
       - "8080:8080"
     restart: always  
+    env_file:
+      - ./backend-java/.env
     depends_on:
       postgres:
         condition: service_started
@@ -51,7 +53,6 @@ services:
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=password
       - PYTHON_AGENT_URL=http://python-agent:8000/api/graph
-      - SPRING_AI_OPENAI_API_KEY=${OPENAI_API_KEY}
 
   # 4. The Frontend (Next.js UI)
   frontend:
