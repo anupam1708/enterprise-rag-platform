@@ -106,9 +106,24 @@ jobs:
           NEXT_PUBLIC_API_URL=http://localhost:8080
           ENVEOF
 
-          # Copy env files to EC2
+          # Create deployment package
+          echo "Creating deployment package..."
+          mkdir -p deployment
+          cp docker-compose.yml deployment/
+          cp init-db.sql deployment/
+          cp init-tables.sql deployment/
+          cp -r agent-python deployment/
+          cp -r backend-java deployment/
+          cp -r frontend-nextjs deployment/
+          cp -r monitoring deployment/
+          tar -czf deployment.tar.gz deployment/
+          
+          echo "Deployment package created successfully"
+          ls -lh deployment.tar.gz
+
+          # Copy deployment package and env files to EC2
           scp -i private_key.pem -o StrictHostKeyChecking=no \
-            backend.env agent.env frontend.env ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/
+            deployment.tar.gz backend.env agent.env frontend.env ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/
           
           # Deploy via SSH
           ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} bash -s << 'EOF'
