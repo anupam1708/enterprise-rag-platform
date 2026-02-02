@@ -70,6 +70,23 @@ jobs:
           echo "$EC2_SSH_KEY" > private_key.pem
           chmod 600 private_key.pem
           
+          # Free up disk space on EC2 before deployment
+          echo "Cleaning up EC2 disk space..."
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} bash -s << 'CLEANUP'
+            echo "=== Disk space before cleanup ==="
+            df -h
+            
+            echo "=== Pruning Docker system ==="
+            docker system prune -af --volumes || true
+            docker builder prune -af || true
+            
+            echo "=== Removing old deployment files ==="
+            rm -rf /home/${USER}/deployment /home/${USER}/deployment.tar.gz || true
+            
+            echo "=== Disk space after cleanup ==="
+            df -h
+          CLEANUP
+          
           # Create env files locally before SSH
           cat > backend.env << ENVEOF
           OPENAI_API_KEY=${OPENAI_API_KEY}
