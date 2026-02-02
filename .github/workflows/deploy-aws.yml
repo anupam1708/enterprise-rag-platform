@@ -102,7 +102,11 @@ jobs:
           # Create env files locally before SSH
           cat > backend.env << ENVEOF
           OPENAI_API_KEY=${OPENAI_API_KEY}
-          JWT_SECRET=${JWT_SECRET}
+          jwt.secret=${JWT_SECRET}
+          SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/compliance_db
+          SPRING_DATASOURCE_USERNAME=postgres
+          SPRING_DATASOURCE_PASSWORD=password
+          PYTHON_AGENT_URL=http://python-agent:8000/api/graph
           ENVEOF
 
           cat > agent.env << ENVEOF
