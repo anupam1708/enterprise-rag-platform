@@ -35,6 +35,8 @@ jobs:
         run: |
           mkdir -p deployment
           cp docker-compose.yml deployment/
+          cp init-db.sql deployment/
+          cp init-tables.sql deployment/
           cp -r monitoring deployment/
           cp -r backend-java deployment/
           cp -r frontend-nextjs deployment/
