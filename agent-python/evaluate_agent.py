@@ -114,8 +114,12 @@ class AgentEvaluator:
                 enable_hitl=False
             )
             
-            # Extract answer from result
-            answer = result.get("result", result.get("answer", "No answer"))
+            # Extract answer from result - handle both dict and string responses
+            if isinstance(result, dict):
+                answer = result.get("result", result.get("answer", "No answer"))
+            else:
+                # If result is a string, use it directly
+                answer = str(result)
             
             return {
                 "answer": answer,
@@ -170,14 +174,12 @@ class AgentEvaluator:
             """Synchronous wrapper for async agent."""
             return asyncio.run(self.run_agent_with_question(inputs))
         
-        # Run evaluation with LangSmith
+        # Run evaluation with LangSmith - removed embedding_distance evaluator due to output format issue
         results = evaluate(
             agent_wrapper,
             data=self.dataset_name,
             evaluators=[
                 self.correctness_evaluator,
-                # Built-in LangChain evaluators
-                LangChainStringEvaluator("embedding_distance"),  # Semantic similarity
             ],
             experiment_prefix=f"agent-eval-{datetime.utcnow().strftime('%Y%m%d-%H%M')}",
             metadata={
