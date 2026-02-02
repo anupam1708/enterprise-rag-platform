@@ -76,9 +76,21 @@ jobs:
             echo "=== Disk space before cleanup ==="
             df -h
             
+            echo "=== Stopping all containers ==="
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm $(docker ps -aq) 2>/dev/null || true
+            
+            echo "=== Removing all Docker images ==="
+            docker rmi $(docker images -q) 2>/dev/null || true
+            
             echo "=== Pruning Docker system ==="
             docker system prune -af --volumes || true
             docker builder prune -af || true
+            
+            echo "=== Cleaning apt cache ==="
+            sudo apt-get clean || true
+            sudo rm -rf /var/cache/apt/archives/* || true
+            sudo rm -rf /var/lib/apt/lists/* || true
             
             echo "=== Removing old deployment files ==="
             rm -rf /home/${USER}/deployment /home/${USER}/deployment.tar.gz || true
@@ -152,10 +164,29 @@ jobs:
             # Remove old volumes to ensure clean state
             docker volume prune -f || true
             
-            # Build and start containers
-            docker-compose up -d --build
+            # Build services sequentially to manage disk space
+            echo "Building postgres..."
+            docker-compose up -d postgres
             
-            # Clean up old images
+            echo "Building python-agent..."
+            docker-compose build python-agent
+            docker image prune -f || true
+            docker-compose up -d python-agent
+            
+            echo "Building java-backend..."
+            docker-compose build java-backend
+            docker image prune -f || true
+            docker-compose up -d java-backend
+            
+            echo "Building frontend..."
+            docker-compose build frontend
+            docker image prune -f || true
+            docker-compose up -d frontend
+            
+            echo "Starting monitoring services..."
+            docker-compose up -d prometheus grafana
+            
+            # Final cleanup
             docker image prune -af
             
             # Wait for services to start
