@@ -100,13 +100,25 @@ jobs:
             tar -xzf deployment.tar.gz
             cd deployment
             
+            # Remove any .env.example files that might interfere
+            find . -name ".env.example" -type f -delete
+            find . -name ".env" -type f -delete
+            find . -name ".env.local" -type f -delete
+            
             # Move env files to correct locations
             mv ../backend.env backend-java/.env
             mv ../agent.env agent-python/.env
             mv ../frontend.env frontend-nextjs/.env.local
             
+            # Verify env files are in place
+            echo "Checking environment files..."
+            ls -la backend-java/.env agent-python/.env frontend-nextjs/.env.local
+            
             # Stop existing containers
             docker-compose down || true
+            
+            # Remove old volumes to ensure clean state
+            docker volume prune -f || true
             
             # Build and start containers
             docker-compose up -d --build
