@@ -32,7 +32,14 @@ services:
     # DNS Configuration
     dns:
       - 8.8.8.8   # Google DNS
-      - 1.1.1.1   # Cloudflare DNS  
+      - 1.1.1.1   # Cloudflare DNS
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: us-east-2
+        awslogs-group: /ecs/compliance-rag
+        awslogs-stream: python-agent
+        awslogs-create-group: "true"
 
   # 3. The Java Backend (Enterprise Gateway)
   java-backend:
@@ -53,6 +60,13 @@ services:
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=password
       - PYTHON_AGENT_URL=http://python-agent:8000/api/graph
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: us-east-2
+        awslogs-group: /ecs/compliance-rag
+        awslogs-stream: java-backend
+        awslogs-create-group: "true"
 
   # 4. The Frontend (Next.js UI)
   frontend:
