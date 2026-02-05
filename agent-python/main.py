@@ -12,6 +12,7 @@ from graph_agent import (
     check_pending_approval,
     approve_and_continue
 )
+from multi_agent_supervisor import run_multi_agent
 
 # 1. Load Environment Variables
 load_dotenv()
@@ -25,8 +26,8 @@ client = AsyncOpenAI(api_key=api_key)
 
 app = FastAPI(
     title="Agentic AI Service", 
-    version="3.0.0",
-    description="Production-grade AI agent with state persistence, time-travel debugging, and Human-in-the-Loop approval flows"
+    version="4.0.0",
+    description="Production-grade AI agent with state persistence, time-travel debugging, Human-in-the-Loop, and Multi-Agent Supervisor patterns"
 )
 
 # ============================================================
@@ -58,18 +59,19 @@ class ApprovalRequest(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "message": "AI Service v3.0 is Online 🤖",
+        "message": "AI Service v4.0 is Online 🤖",
         "features": [
             "State Persistence (survives restarts)",
             "Conversation History",
             "Time Travel Debugging",
-            "Human-in-the-Loop (HITL) Approval Flows"
+            "Human-in-the-Loop (HITL) Approval Flows",
+            "Multi-Agent Supervisor Pattern (NEW!)"
         ]
     }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "3.0.0"}
+    return {"status": "healthy", "version": "4.0.0"}
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -93,6 +95,53 @@ async def run_agent_endpoint(request: ChatRequest):
     try:
         response_text = run_agent(request.query)
         return ChatResponse(answer=response_text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================
+# 🎯 MULTI-AGENT SUPERVISOR PATTERN
+# ============================================================
+
+class MultiAgentRequest(BaseModel):
+    query: str
+    
+class MultiAgentResponse(BaseModel):
+    answer: str
+    agents_used: list[str]
+    research_results: Optional[str] = None
+    quantitative_results: Optional[str] = None
+    success: bool
+
+@app.post("/api/multi-agent", response_model=MultiAgentResponse)
+async def run_multi_agent_endpoint(request: MultiAgentRequest):
+    """
+    Execute a query using the Multi-Agent Supervisor Pattern.
+    
+    This endpoint routes requests through a hierarchical agent system:
+    
+    - **Supervisor**: Routes tasks to specialized workers (never calls tools)
+    - **Research Agent**: Web search, fact-finding (DuckDuckGo)
+    - **Quantitative Agent**: Stock analysis, calculations (yfinance, pandas)
+    - **Writer Agent**: Formats final response (no tools, pure LLM)
+    
+    The supervisor decides which agent(s) should handle the request,
+    enabling separation of concerns and more reliable responses.
+    
+    **Example queries:**
+    - "What is the stock price of Apple?" → Quant Agent
+    - "What are the latest AI news?" → Research Agent
+    - "Analyze Tesla stock and market sentiment" → Research + Quant + Writer
+    """
+    try:
+        result = await run_multi_agent(request.query)
+        
+        return MultiAgentResponse(
+            answer=result.get("answer", ""),
+            agents_used=result.get("agent_trace", {}).get("agents_used", []),
+            research_results=result.get("agent_trace", {}).get("research_results"),
+            quantitative_results=result.get("agent_trace", {}).get("quantitative_results"),
+            success=result.get("success", False)
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
