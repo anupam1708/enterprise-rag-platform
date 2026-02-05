@@ -8,12 +8,14 @@ AI-powered compliance and knowledge management system with document ingestion, v
 ## 🚀 **Key Architectural Highlights**
 
 ### **Production-Grade Agentic Patterns**
+- ✅ **Multi-Agent Supervisor Pattern**: Hierarchical agent system with specialized workers (Research, Quantitative, Writer)
 - ✅ **State Persistence**: Conversations survive container restarts (PostgreSQL checkpointer)
 - ✅ **Time-Travel Debugging**: Rewind to any checkpoint, explore alternate paths
 - ✅ **Multi-Tenant Isolation**: Independent conversation threads per user
 - ✅ **Human-in-the-Loop (HITL)**: Interrupt pattern for high-risk tool approvals
 - ✅ **Cognitive Architecture**: LangGraph with tool orchestration, not just simple search
 - ✅ **LLM Evaluation**: LangSmith integration with 20-question regression testing in CI/CD
+- ✅ **CloudWatch Logging**: Centralized log management for production observability
 
 📖 **[State Persistence Architecture Guide →](agent-python/STATE_PERSISTENCE_README.md)**  
 🔐 **[Human-in-the-Loop (HITL) Guide →](agent-python/HITL_README.md)**  
@@ -63,12 +65,40 @@ AI-powered compliance and knowledge management system with document ingestion, v
             │ • LangChain     │ │ • User DB    │ │ • GPT-4    │
             │ • DuckDuckGo    │ │ • Vectors    │ │ • Embed    │
             │ • State Persist │ │ • Checkpoints│ │            │
+            │ • Multi-Agent   │ │              │ │            │
+            │   Supervisor    │ │              │ │            │
             └─────────────────┘ └──────────────┘ └────────────┘
                     ↑                   ↑
                     └───────────────────┘
                       AsyncPostgresSaver
                     (Time-Travel Layer)
 ```
+
+### Multi-Agent Supervisor Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        SUPERVISOR                                │
+│         (Routes requests, never calls tools directly)            │
+│                              │                                   │
+│     ┌────────────────────────┼────────────────────────┐         │
+│     ▼                        ▼                        ▼         │
+│ ┌─────────┐          ┌─────────────┐          ┌─────────────┐   │
+│ │RESEARCH │          │QUANTITATIVE │          │   WRITER    │   │
+│ │  AGENT  │          │    AGENT    │          │   AGENT     │   │
+│ ├─────────┤          ├─────────────┤          ├─────────────┤   │
+│ │DuckDuck │          │  yfinance   │          │  No tools   │   │
+│ │   Go    │          │   Pandas    │          │  Pure LLM   │   │
+│ │ Scraper │          │   Math      │          │ formatting  │   │
+│ └─────────┘          └─────────────┘          └─────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why Multi-Agent Supervisor Wins Interviews:**
+- Shows understanding of **Separation of Concerns** in GenAI
+- Demonstrates knowledge of **LangGraph's StateGraph**
+- Reflects how **enterprises build reliable multi-agent systems**
+- Enables **parallel execution** and **specialized error handling**
 
 ### Data Flow
 
@@ -120,9 +150,12 @@ Request → Nginx (SSL) → Backend → JWT Validation → PII Sanitization
 - 📄 **Document Ingestion**: Upload and process PDF documents
 - 🔍 **Vector Search**: Semantic search using pgvector
 - 🧠 **LangGraph Agents**: Advanced AI workflows with Python
+- 🤖 **Multi-Agent Supervisor**: Hierarchical agent orchestration (Research, Quant, Writer)
+- 📈 **Stock Analysis**: Real-time financial data via yfinance
 - 🛡️ **PII Sanitization**: Automatic detection and masking of sensitive data
 - 📊 **Audit Logging**: Track all interactions and queries
 - 🔄 **Circuit Breaker**: Resilient service communication
+- ☁️ **CloudWatch Integration**: Centralized logging for production
 
 ## Tech Stack
 
@@ -143,11 +176,15 @@ Request → Nginx (SSL) → Backend → JWT Validation → PII Sanitization
 - LangChain + LangGraph
 - OpenAI GPT-4
 - FastAPI
+- yfinance (stock data)
+- pandas (data analysis)
 
 ### Infrastructure
 - Docker + Docker Compose
-- AWS EC2
+- AWS EC2 (t3.medium)
 - Nginx (reverse proxy)
+- AWS CloudWatch (logging)
+- Prometheus + Grafana (monitoring)
 
 ## Quick Start
 
@@ -190,17 +227,26 @@ Wait for all services to start (~30 seconds), then verify:
 docker ps
 ```
 
-You should see 4 containers running:
+You should see 6 containers running:
 - `rag_frontend` (port 3000)
 - `java_backend` (port 8080)
 - `python_agent` (port 8000)
 - `compliance_db` (port 5432)
+- `prometheus` (port 9090)
+- `grafana` (port 3001)
 
 ### 4. Access the Application
 
+**Local Development:**
 - **Frontend UI**: http://localhost:3000
 - **Backend API**: http://localhost:8080
 - **Python Agent API Docs**: http://localhost:8000/docs
+
+**Production (AWS EC2):**
+- **Live Demo**: https://hnsworld.ai
+- **Python Agent API Docs**: http://3.131.250.245:8000/docs
+- **Monitoring**: Prometheus (port 9090), Grafana (port 3001)
+- **CloudWatch Logs**: `/ecs/compliance-rag`
 
 ## API Endpoints
 
@@ -286,6 +332,36 @@ curl -X GET "http://localhost:8080/api/chat/agent?query=Who%20is%20the%20current
 - Real-time information lookup
 - General knowledge questions
 - When you want to force web search
+
+#### 3. Multi-Agent Supervisor (NEW!)
+Routes queries through specialized agents (Research, Quantitative, Writer).
+
+```bash
+POST /api/multi-agent
+Content-Type: application/json
+
+{
+  "query": "What is the stock price of Apple and how has it performed?"
+}
+
+# Example with curl
+curl -X POST "https://hnsworld.ai/api/multi-agent" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Analyze Tesla stock performance"}'
+
+# Response (200 OK)
+{
+  "answer": "## Tesla Stock Analysis\n\n**Current Price:** $248.50...",
+  "agents_used": ["Quantitative Agent", "Writer Agent"],
+  "quantitative_results": "Stock: TSLA\nCurrent Price: $248.50...",
+  "success": true
+}
+```
+
+**Agent Routing:**
+- 📊 **Quantitative Agent**: Stock prices, financial analysis (yfinance, pandas)
+- 🔍 **Research Agent**: Web searches, current events (DuckDuckGo)
+- ✍️ **Writer Agent**: Formats final response (no tools, pure LLM)
 
 ### Document Management
 
