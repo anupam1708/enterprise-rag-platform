@@ -8,6 +8,7 @@ AI-powered compliance and knowledge management system with document ingestion, v
 ## 🚀 **Key Architectural Highlights**
 
 ### **Production-Grade Agentic Patterns**
+- ✅ **Generative UI (NEW!)**: Stream rich UI components (charts, tables, cards) instead of plain text
 - ✅ **Multi-Agent Supervisor Pattern**: Hierarchical agent system with specialized workers (Research, Quantitative, Writer)
 - ✅ **State Persistence**: Conversations survive container restarts (PostgreSQL checkpointer)
 - ✅ **Time-Travel Debugging**: Rewind to any checkpoint, explore alternate paths
@@ -19,7 +20,8 @@ AI-powered compliance and knowledge management system with document ingestion, v
 
 📖 **[State Persistence Architecture Guide →](agent-python/STATE_PERSISTENCE_README.md)**  
 🔐 **[Human-in-the-Loop (HITL) Guide →](agent-python/HITL_README.md)**  
-📊 **[LangSmith Evaluation & Observability →](agent-python/EVALUATION_README.md)**
+📊 **[LangSmith Evaluation & Observability →](agent-python/EVALUATION_README.md)**  
+🎨 **[Generative UI (Streaming Components) →](agent-python/GENERATIVE_UI_README.md)**
 
 ---
 
@@ -99,6 +101,54 @@ AI-powered compliance and knowledge management system with document ingestion, v
 - Demonstrates knowledge of **LangGraph's StateGraph**
 - Reflects how **enterprises build reliable multi-agent systems**
 - Enables **parallel execution** and **specialized error handling**
+
+### Generative UI Architecture
+
+```
+User: "Compare Google and Microsoft stock"
+           │
+           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    PYTHON AGENT                               │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  1. Detect visualization opportunity (stock comparison) │  │
+│  │  2. Fetch real data via yfinance                        │  │
+│  │  3. Build structured JSON artifacts                     │  │
+│  └────────────────────────────────────────────────────────┘  │
+└──────────────────────┬───────────────────────────────────────┘
+                       │ Server-Sent Events (SSE)
+                       │
+    data: {"type": "artifact", "artifact": {"type": "line_chart", ...}}
+    data: {"type": "artifact", "artifact": {"type": "data_table", ...}}
+    data: {"type": "artifact", "artifact": {"type": "stock_card", ...}}
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   NEXT.JS FRONTEND                            │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  ArtifactRenderer intercepts JSON, renders:             │  │
+│  │  • <LineChartComponent /> - Recharts time series        │  │
+│  │  • <DataTableComponent /> - Sortable comparison table   │  │
+│  │  • <StockCardComponent /> - Rich stock info cards       │  │
+│  └────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Supported Artifact Types:**
+| Type | Component | Use Case |
+|------|-----------|----------|
+| `line_chart` | LineChartComponent | Stock prices, trends |
+| `bar_chart` | BarChartComponent | Category comparisons |
+| `data_table` | DataTableComponent | Structured data |
+| `stock_card` | StockCardComponent | Rich stock info |
+| `metric_card` | MetricCardComponent | Single metrics |
+| `text` | TextComponent | Plain text fallback |
+
+**Why Generative UI Wins Interviews:**
+- Demonstrates **Full Stack AI** capability
+- Shows tight coupling between **reasoning layer and presentation layer**
+- Real-time **SSE streaming** creates engaging UX
+- Similar to how **ChatGPT/Claude render code blocks, images**
 
 ### Data Flow
 
@@ -362,6 +412,54 @@ curl -X POST "https://hnsworld.ai/api/multi-agent" \
 - 📊 **Quantitative Agent**: Stock prices, financial analysis (yfinance, pandas)
 - 🔍 **Research Agent**: Web searches, current events (DuckDuckGo)
 - ✍️ **Writer Agent**: Formats final response (no tools, pure LLM)
+
+#### 4. Generative UI (Streaming Components) - NEW!
+Streams rich UI components (charts, tables, cards) instead of plain text.
+
+```bash
+POST /api/generative-ui
+Content-Type: application/json
+
+{
+  "query": "Compare Google and Microsoft stock",
+  "stream": true
+}
+
+# Response (Server-Sent Events stream)
+data: {"type": "status", "message": "Fetching GOOGL, MSFT data..."}
+data: {"type": "artifact", "artifact": {"type": "line_chart", "title": "Stock Comparison", ...}}
+data: {"type": "artifact", "artifact": {"type": "data_table", "title": "Comparison", ...}}
+data: {"type": "artifact", "artifact": {"type": "stock_card", "symbol": "GOOGL", ...}}
+data: {"type": "artifact", "artifact": {"type": "stock_card", "symbol": "MSFT", ...}}
+data: {"type": "artifact", "artifact": {"type": "text", "content": "Analysis summary..."}}
+data: {"type": "done", "agents_used": ["Quantitative Agent", "Writer Agent"]}
+
+# Non-streaming version
+curl -X POST "https://hnsworld.ai/api/generative-ui" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Apple stock price", "stream": false}'
+
+# Response (200 OK)
+{
+  "artifacts": [
+    {"type": "stock_card", "symbol": "AAPL", "current_price": 178.50, ...},
+    {"type": "line_chart", "title": "AAPL Stock Price", ...}
+  ],
+  "text": "Apple (AAPL) is currently trading at...",
+  "agents_used": ["Quantitative Agent", "Writer Agent"],
+  "success": true
+}
+```
+
+**Artifact Types:**
+| Type | Description | Renders As |
+|------|-------------|------------|
+| `line_chart` | Time series data | Recharts LineChart |
+| `bar_chart` | Category comparisons | Recharts BarChart |
+| `data_table` | Structured data | Sortable HTML table |
+| `stock_card` | Stock info card | Rich info card with metrics |
+| `metric_card` | Single metric | Highlighted metric box |
+| `text` | Plain text | Formatted text |
 
 ### Document Management
 
