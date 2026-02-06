@@ -1,0 +1,264 @@
+# Red Team Security Testing Workflow
+# 
+# This workflow runs automated adversarial testing against the AI system
+# to identify security vulnerabilities before they reach production.
+#
+# Triggers:
+# - On every push to main (full test)
+# - On every PR (quick test)
+# - Manually via workflow_dispatch
+# - Scheduled weekly (full test)
+
+name: 🛡️ Red Team Security Testing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-python/**'
+      - '.github/workflows/red-team-security.yml'
+  
+  pull_request:
+    branches: [main]
+    paths:
+      - 'agent-python/**'
+  
+  schedule:
+    # Run full test every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+  
+  workflow_dispatch:
+    inputs:
+      test_scope:
+        description: 'Test scope'
+        required: true
+        default: 'quick'
+        type: choice
+        options:
+          - quick
+          - critical
+          - full
+      target_url:
+        description: 'Target API URL'
+        required: false
+        default: 'https://hnsworld.ai/python-api'
+      threshold:
+        description: 'Pass threshold (0.0-1.0)'
+        required: false
+        default: '0.95'
+
+env:
+  PYTHON_VERSION: '3.11'
+  RED_TEAM_THRESHOLD: '0.95'
+
+jobs:
+  red-team-test:
+    name: 🎯 Adversarial Security Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install httpx
+      
+      - name: 🔧 Determine test parameters
+        id: params
+        run: |
+          # Determine test scope
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SCOPE="${{ github.event.inputs.test_scope }}"
+            TARGET="${{ github.event.inputs.target_url }}"
+            THRESHOLD="${{ github.event.inputs.threshold }}"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            SCOPE="full"
+            TARGET="https://hnsworld.ai/python-api"
+            THRESHOLD="${{ env.RED_TEAM_THRESHOLD }}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            SCOPE="quick"
+            TARGET="https://hnsworld.ai/python-api"
+            THRESHOLD="${{ env.RED_TEAM_THRESHOLD }}"
+          else
+            SCOPE="critical"
+            TARGET="https://hnsworld.ai/python-api"
+            THRESHOLD="${{ env.RED_TEAM_THRESHOLD }}"
+          fi
+          
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+          echo "threshold=$THRESHOLD" >> $GITHUB_OUTPUT
+          
+          echo "📋 Test Parameters:"
+          echo "  Scope: $SCOPE"
+          echo "  Target: $TARGET"
+          echo "  Threshold: $THRESHOLD"
+      
+      - name: 🛡️ Run Red Team Tests
+        id: red_team
+        working-directory: agent-python/red_team
+        env:
+          RED_TEAM_TARGET_URL: ${{ steps.params.outputs.target }}
+          RED_TEAM_THRESHOLD: ${{ steps.params.outputs.threshold }}
+        run: |
+          echo "🎯 Starting Red Team Security Testing..."
+          echo ""
+          
+          # Run tests based on scope
+          SCOPE="${{ steps.params.outputs.scope }}"
+          
+          if [ "$SCOPE" = "quick" ]; then
+            python run_red_team_tests.py --quick --ci --output markdown --output-file report.md
+          elif [ "$SCOPE" = "critical" ]; then
+            python run_red_team_tests.py --critical --ci --output markdown --output-file report.md
+          else
+            python run_red_team_tests.py --full --ci --output markdown --output-file report.md
+          fi
+        continue-on-error: true
+      
+      - name: 📊 Generate JSON Report
+        if: always()
+        working-directory: agent-python/red_team
+        env:
+          RED_TEAM_TARGET_URL: ${{ steps.params.outputs.target }}
+          RED_TEAM_THRESHOLD: ${{ steps.params.outputs.threshold }}
+        run: |
+          # Generate JSON report for programmatic access
+          SCOPE="${{ steps.params.outputs.scope }}"
+          
+          if [ "$SCOPE" = "quick" ]; then
+            python run_red_team_tests.py --quick --output json --output-file report.json || true
+          elif [ "$SCOPE" = "critical" ]; then
+            python run_red_team_tests.py --critical --output json --output-file report.json || true
+          else
+            python run_red_team_tests.py --full --output json --output-file report.json || true
+          fi
+      
+      - name: 📝 Upload Security Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-team-security-report-${{ github.run_number }}
+          path: |
+            agent-python/red_team/report.md
+            agent-python/red_team/report.json
+          retention-days: 30
+      
+      - name: 💬 Post PR Comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'agent-python/red_team/report.md';
+            
+            let report = '## 🛡️ Red Team Security Report\n\n';
+            
+            if (fs.existsSync(path)) {
+              const content = fs.readFileSync(path, 'utf8');
+              // Truncate if too long for PR comment
+              if (content.length > 60000) {
+                report += content.substring(0, 60000) + '\n\n... (truncated)';
+              } else {
+                report += content;
+              }
+            } else {
+              report += '⚠️ Report file not found. Check workflow logs for details.';
+            }
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Red Team Security Report')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+      
+      - name: 🚨 Check Test Results
+        if: steps.red_team.outcome == 'failure'
+        run: |
+          echo "❌ Red Team tests FAILED!"
+          echo ""
+          echo "Security vulnerabilities were detected that exceed the acceptable threshold."
+          echo "Please review the security report artifact for details."
+          echo ""
+          exit 1
+      
+      - name: ✅ Tests Passed
+        if: steps.red_team.outcome == 'success'
+        run: |
+          echo "✅ Red Team tests PASSED!"
+          echo ""
+          echo "The AI system defended against adversarial attacks above the required threshold."
+
+  notify-on-failure:
+    name: 📢 Notify on Critical Vulnerabilities
+    needs: red-team-test
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔔 Create Security Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Red Team Security Test Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Security Alert
+            
+            The automated Red Team security testing has detected vulnerabilities that exceed the acceptable threshold.
+            
+            **Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            **Triggered By:** ${{ github.event_name }}
+            **Branch:** ${{ github.ref_name }}
+            
+            ### Required Actions
+            1. Download the security report artifact from the workflow run
+            2. Review all identified vulnerabilities
+            3. Prioritize and fix critical/high severity issues
+            4. Re-run the security tests after fixes
+            
+            ### Labels
+            - \`security\`
+            - \`red-team\`
+            - \`priority:high\`
+            
+            cc: @security-team
+            `;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['security', 'red-team', 'priority:high']
+            });
