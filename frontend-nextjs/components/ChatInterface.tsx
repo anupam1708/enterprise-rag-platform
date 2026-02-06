@@ -56,7 +56,27 @@ export default function ChatInterface() {
 
   // Use Python agent URL directly for Generative UI, Java backend for regular chat
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-  const PYTHON_AGENT_URL = process.env.NEXT_PUBLIC_PYTHON_AGENT_URL || 'http://localhost:8000'
+  
+  // Derive Python agent URL - in production use the EC2 public IP on port 8000
+  // In development, use localhost:8000
+  const getPythonAgentUrl = () => {
+    if (process.env.NEXT_PUBLIC_PYTHON_AGENT_URL) {
+      return process.env.NEXT_PUBLIC_PYTHON_AGENT_URL
+    }
+    // If API_URL is set to production (not localhost), use the EC2 IP for Python agent
+    if (API_URL && !API_URL.includes('localhost')) {
+      // Extract host from API_URL and use port 8000 for Python agent
+      try {
+        const url = new URL(API_URL)
+        // Use HTTP for Python agent (not HTTPS) since it's direct to EC2
+        return `http://3.131.250.245:8000`
+      } catch {
+        return 'http://localhost:8000'
+      }
+    }
+    return 'http://localhost:8000'
+  }
+  const PYTHON_AGENT_URL = getPythonAgentUrl()
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
