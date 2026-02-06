@@ -260,7 +260,8 @@ async def generate_stream_events(query: str):
         
         if is_comparison and len(symbols) >= 2:
             # Multi-stock comparison
-            yield f"data: {json.dumps({'type': 'status', 'message': f'Fetching data for {', '.join(symbols)}...'})}\n\n"
+            status_msg = f"Fetching data for {', '.join(symbols)}..."
+            yield f"data: {json.dumps({'type': 'status', 'message': status_msg})}\n\n"
             
             data = fetch_comparison_data(symbols, period="1mo")
             
@@ -287,7 +288,8 @@ async def generate_stream_events(query: str):
         else:
             # Single stock
             symbol = symbols[0]
-            yield f"data: {json.dumps({'type': 'status', 'message': f'Fetching {symbol} stock data...'})}\n\n"
+            status_msg = f"Fetching {symbol} stock data..."
+            yield f"data: {json.dumps({'type': 'status', 'message': status_msg})}\n\n"
             
             data = fetch_stock_with_chart(symbol, period="1mo")
             
