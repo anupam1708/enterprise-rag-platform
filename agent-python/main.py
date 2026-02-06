@@ -1,13 +1,23 @@
 import os
 import json
 import asyncio
+import time
+import logging
 from typing import Optional, List, Dict, Any
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from agent import run_agent
+from semantic_cache import (
+    SemanticCache,
+    CacheResult,
+    CacheStatus,
+    initialize_semantic_cache,
+    get_semantic_cache
+)
 from graph_agent import (
     run_graph_agent, 
     get_conversation_history, 
@@ -38,10 +48,55 @@ if not api_key:
 # 2. Initialize the Async Client
 client = AsyncOpenAI(api_key=api_key)
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Database URL for semantic cache (same as graph agent)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/compliance_rag"
+)
+
+# Semantic Cache configuration from environment
+CACHE_ENABLED = os.getenv("SEMANTIC_CACHE_ENABLED", "true").lower() == "true"
+CACHE_TTL = int(os.getenv("SEMANTIC_CACHE_TTL", "300"))  # 5 minutes default
+CACHE_SIMILARITY_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.92"))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize services on startup, cleanup on shutdown."""
+    # Startup
+    logger.info("🚀 Starting AI Service...")
+    
+    # Initialize semantic cache
+    if CACHE_ENABLED:
+        try:
+            await initialize_semantic_cache(
+                database_url=DATABASE_URL,
+                similarity_threshold=CACHE_SIMILARITY_THRESHOLD,
+                ttl_seconds=CACHE_TTL,
+                enabled=True
+            )
+            logger.info(f"✅ Semantic cache initialized (TTL={CACHE_TTL}s, threshold={CACHE_SIMILARITY_THRESHOLD})")
+        except Exception as e:
+            logger.error(f"⚠️ Failed to initialize semantic cache: {e}")
+            logger.info("Continuing without semantic caching...")
+    else:
+        logger.info("⏸️ Semantic cache disabled")
+    
+    yield
+    
+    # Shutdown
+    logger.info("👋 Shutting down AI Service...")
+
+
 app = FastAPI(
     title="Agentic AI Service", 
-    version="5.0.0",
-    description="Production-grade AI agent with state persistence, time-travel debugging, Human-in-the-Loop, Multi-Agent Supervisor, and Generative UI patterns"
+    version="6.0.0",
+    description="Production-grade AI agent with state persistence, time-travel debugging, Human-in-the-Loop, Multi-Agent Supervisor, Generative UI, and Semantic Caching",
+    lifespan=lifespan
 )
 
 # ============================================================
@@ -72,21 +127,30 @@ class ApprovalRequest(BaseModel):
 
 @app.get("/")
 async def root():
+    cache = get_semantic_cache()
+    cache_status = "enabled" if cache and cache.enabled else "disabled"
+    
     return {
-        "message": "AI Service v5.0 is Online 🤖",
+        "message": "AI Service v6.0 is Online 🤖",
         "features": [
             "State Persistence (survives restarts)",
             "Conversation History",
             "Time Travel Debugging",
             "Human-in-the-Loop (HITL) Approval Flows",
             "Multi-Agent Supervisor Pattern",
-            "Generative UI (Streaming Components) - NEW!"
+            "Generative UI (Streaming Components)",
+            f"Semantic Caching ({cache_status}) - NEW!"
         ]
     }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "5.0.0"}
+    cache = get_semantic_cache()
+    return {
+        "status": "healthy", 
+        "version": "6.0.0",
+        "cache_enabled": cache.enabled if cache else False
+    }
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -126,11 +190,27 @@ class MultiAgentResponse(BaseModel):
     research_results: Optional[str] = None
     quantitative_results: Optional[str] = None
     success: bool
+    cache_hit: Optional[bool] = None
+    cache_similarity: Optional[float] = None
+    latency_ms: Optional[float] = None
+
+
+class CacheConfigRequest(BaseModel):
+    enabled: Optional[bool] = None
+    ttl_seconds: Optional[int] = None
+    similarity_threshold: Optional[float] = None
+
 
 @app.post("/api/multi-agent", response_model=MultiAgentResponse)
 async def run_multi_agent_endpoint(request: MultiAgentRequest):
     """
-    Execute a query using the Multi-Agent Supervisor Pattern.
+    Execute a query using the Multi-Agent Supervisor Pattern with Semantic Caching.
+    
+    **Semantic Caching Flow:**
+    1. Query embedding is generated
+    2. Check cache for semantically similar queries (cosine similarity > threshold)
+    3. **Cache Hit**: Return cached response (0ms LLM latency, $0 cost)
+    4. **Cache Miss**: Execute agents → Store response in cache
     
     This endpoint routes requests through a hierarchical agent system:
     
@@ -139,23 +219,71 @@ async def run_multi_agent_endpoint(request: MultiAgentRequest):
     - **Quantitative Agent**: Stock analysis, calculations (yfinance, pandas)
     - **Writer Agent**: Formats final response (no tools, pure LLM)
     
-    The supervisor decides which agent(s) should handle the request,
-    enabling separation of concerns and more reliable responses.
-    
     **Example queries:**
     - "What is the stock price of Apple?" → Quant Agent
     - "What are the latest AI news?" → Research Agent
     - "Analyze Tesla stock and market sentiment" → Research + Quant + Writer
+    
+    **Cache Benefits:**
+    - 50 users asking similar questions = 1 LLM call
+    - ~0ms cache hit latency vs ~2000ms LLM latency
+    - Estimated $0.03 saved per cache hit
     """
+    start_time = time.time()
+    cache = get_semantic_cache()
+    cache_hit = False
+    cache_similarity = None
+    
     try:
+        # Check semantic cache first
+        if cache and cache.enabled:
+            cache_result = await cache.get(request.query)
+            
+            if cache_result.status == CacheStatus.HIT:
+                # Cache hit! Return cached response
+                latency_ms = (time.time() - start_time) * 1000
+                logger.info(f"✅ Cache HIT (similarity={cache_result.similarity:.3f}): {request.query[:50]}...")
+                
+                return MultiAgentResponse(
+                    answer=cache_result.response,
+                    agents_used=["cache"],
+                    research_results=None,
+                    quantitative_results=None,
+                    success=True,
+                    cache_hit=True,
+                    cache_similarity=cache_result.similarity,
+                    latency_ms=latency_ms
+                )
+            else:
+                logger.info(f"❌ Cache MISS: {request.query[:50]}...")
+        
+        # Cache miss - execute multi-agent
         result = await run_multi_agent(request.query)
+        answer = result.get("answer", "")
+        
+        # Store in cache for future requests
+        if cache and cache.enabled and answer:
+            await cache.set(
+                query=request.query,
+                response=answer,
+                metadata={
+                    "agents_used": result.get("agent_trace", {}).get("agents_used", []),
+                    "source": "multi-agent"
+                }
+            )
+            logger.info(f"💾 Cached response for: {request.query[:50]}...")
+        
+        latency_ms = (time.time() - start_time) * 1000
         
         return MultiAgentResponse(
-            answer=result.get("answer", ""),
+            answer=answer,
             agents_used=result.get("agent_trace", {}).get("agents_used", []),
             research_results=result.get("agent_trace", {}).get("research_results"),
             quantitative_results=result.get("agent_trace", {}).get("quantitative_results"),
-            success=result.get("success", False)
+            success=result.get("success", False),
+            cache_hit=False,
+            cache_similarity=None,
+            latency_ms=latency_ms
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -515,6 +643,137 @@ async def approve_endpoint(request: ApprovalRequest):
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# 💾 SEMANTIC CACHE MANAGEMENT ENDPOINTS
+# ============================================================
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """
+    Get semantic cache statistics.
+    
+    Returns:
+    - Total queries processed
+    - Cache hits/misses
+    - Hit rate percentage
+    - Estimated cost savings
+    - Average latency for hits vs misses
+    
+    **Use Case**: Monitor cache efficiency in production.
+    """
+    cache = get_semantic_cache()
+    if not cache:
+        return {"enabled": False, "message": "Semantic cache not initialized"}
+    
+    stats = await cache.get_stats()
+    
+    return {
+        "enabled": cache.enabled,
+        "config": {
+            "ttl_seconds": cache.ttl_seconds,
+            "similarity_threshold": cache.similarity_threshold,
+            "max_cache_size": cache.max_cache_size
+        },
+        "stats": {
+            "total_queries": stats.total_queries,
+            "cache_hits": stats.cache_hits,
+            "cache_misses": stats.cache_misses,
+            "hit_rate_percent": round(stats.hit_rate, 2),
+            "estimated_cost_saved_usd": round(stats.estimated_cost_saved, 2),
+            "avg_hit_latency_ms": round(stats.avg_hit_latency_ms, 2),
+            "avg_miss_latency_ms": round(stats.avg_miss_latency_ms, 2)
+        }
+    }
+
+
+@app.get("/api/cache/entries")
+async def get_cache_entries(limit: int = 50):
+    """
+    List recent cache entries for monitoring.
+    
+    Shows query text, response preview, hit count, and expiration.
+    Useful for debugging and understanding cache behavior.
+    """
+    cache = get_semantic_cache()
+    if not cache:
+        return {"enabled": False, "entries": []}
+    
+    entries = await cache.get_cache_entries(limit=limit)
+    
+    # Convert datetime objects to strings for JSON serialization
+    for entry in entries:
+        for key in ["created_at", "expires_at", "last_hit_at"]:
+            if entry.get(key):
+                entry[key] = entry[key].isoformat()
+    
+    return {"enabled": cache.enabled, "count": len(entries), "entries": entries}
+
+
+@app.post("/api/cache/config")
+async def update_cache_config(config: CacheConfigRequest):
+    """
+    Update cache configuration at runtime.
+    
+    **Parameters:**
+    - `enabled`: Enable/disable caching
+    - `ttl_seconds`: Time-to-live for cache entries
+    - `similarity_threshold`: Minimum similarity for cache hit (0-1)
+    
+    **Example:**
+    ```json
+    {"enabled": true, "ttl_seconds": 600, "similarity_threshold": 0.90}
+    ```
+    """
+    cache = get_semantic_cache()
+    if not cache:
+        raise HTTPException(status_code=503, detail="Semantic cache not initialized")
+    
+    if config.enabled is not None:
+        if config.enabled:
+            cache.enable()
+        else:
+            cache.disable()
+    
+    if config.ttl_seconds is not None:
+        cache.set_ttl(config.ttl_seconds)
+    
+    if config.similarity_threshold is not None:
+        cache.set_threshold(config.similarity_threshold)
+    
+    return {
+        "message": "Cache configuration updated",
+        "config": {
+            "enabled": cache.enabled,
+            "ttl_seconds": cache.ttl_seconds,
+            "similarity_threshold": cache.similarity_threshold
+        }
+    }
+
+
+@app.delete("/api/cache")
+async def invalidate_cache(query: Optional[str] = None):
+    """
+    Invalidate cache entries.
+    
+    - No query parameter: Invalidate ALL cache entries
+    - With query parameter: Invalidate specific query only
+    
+    **Use Case**: Clear stale data or reset for testing.
+    """
+    cache = get_semantic_cache()
+    if not cache:
+        raise HTTPException(status_code=503, detail="Semantic cache not initialized")
+    
+    count = await cache.invalidate(query=query)
+    
+    return {
+        "message": f"Invalidated {count} cache entries",
+        "query": query,
+        "count": count
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

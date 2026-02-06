@@ -78,3 +78,38 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_chat_audit_logs_user_id ON chat_audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_audit_logs_session_id ON chat_audit_logs(session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_audit_logs_timestamp ON chat_audit_logs(timestamp);
+
+-- ============================================================
+-- Semantic Cache Table (Enterprise Optimization)
+-- ============================================================
+-- Stores query embeddings and responses for semantic similarity matching.
+-- Reduces LLM costs and latency by reusing answers for similar questions.
+-- Example: "How is Apple doing?" and "What's Apple's stock status?" can share a response.
+
+CREATE TABLE IF NOT EXISTS semantic_cache (
+    id SERIAL PRIMARY KEY,
+    query_hash VARCHAR(64) UNIQUE NOT NULL,
+    query_text TEXT NOT NULL,
+    query_embedding vector(1536),
+    response_text TEXT NOT NULL,
+    response_metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    hit_count INTEGER DEFAULT 0,
+    last_hit_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Index for vector similarity search using IVFFlat
+-- Uses cosine similarity for semantic matching
+CREATE INDEX IF NOT EXISTS idx_semantic_cache_embedding 
+ON semantic_cache 
+USING ivfflat (query_embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Index for expiration cleanup
+CREATE INDEX IF NOT EXISTS idx_semantic_cache_expires 
+ON semantic_cache (expires_at);
+
+-- Index for exact query hash lookup
+CREATE INDEX IF NOT EXISTS idx_semantic_cache_hash
+ON semantic_cache (query_hash);
