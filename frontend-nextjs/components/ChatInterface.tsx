@@ -54,22 +54,20 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Use Python agent URL directly for Generative UI, Java backend for regular chat
+  // Use Java backend for regular chat, Python agent proxied through nginx for Generative UI
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
   
-  // Derive Python agent URL - in production use the EC2 public IP on port 8000
-  // In development, use localhost:8000
+  // For Generative UI, use the same domain with /python-api prefix (nginx proxies to Python agent)
+  // This avoids Mixed Content issues (HTTPS page calling HTTP API)
   const getPythonAgentUrl = () => {
     if (process.env.NEXT_PUBLIC_PYTHON_AGENT_URL) {
       return process.env.NEXT_PUBLIC_PYTHON_AGENT_URL
     }
-    // If API_URL is set to production (not localhost), use the EC2 IP for Python agent
+    // In production, use the same domain - nginx will proxy /python-api to Python agent
     if (API_URL && !API_URL.includes('localhost')) {
-      // Extract host from API_URL and use port 8000 for Python agent
       try {
         const url = new URL(API_URL)
-        // Use HTTP for Python agent (not HTTPS) since it's direct to EC2
-        return `http://3.131.250.245:8000`
+        return `${url.protocol}//${url.host}/python-api`
       } catch {
         return 'http://localhost:8000'
       }
