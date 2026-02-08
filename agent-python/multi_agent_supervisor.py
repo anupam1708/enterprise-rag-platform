@@ -46,7 +46,7 @@ from datetime import datetime
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor, ToolInvocation
@@ -76,18 +76,24 @@ class MultiAgentState(TypedDict):
 # ============================================================
 
 # --- Research Agent Tools ---
-search_tool = DuckDuckGoSearchRun()
+search_tool = TavilySearchResults(max_results=5)
 
 @tool
 def web_search(query: str) -> str:
     """Search the web for current information on any topic.
-    
+
     Args:
         query: The search query to find information about
     """
     logger.info(f"🔍 Research Agent: Searching for '{query}'")
     try:
-        results = search_tool.run(query)
+        results = search_tool.invoke(query)
+        if isinstance(results, list):
+            formatted = "\n\n".join(
+                f"Source: {r.get('url', 'N/A')}\n{r.get('content', '')}"
+                for r in results
+            )
+            return f"Search Results:\n{formatted}"
         return f"Search Results:\n{results}"
     except Exception as e:
         return f"Search failed: {str(e)}"
