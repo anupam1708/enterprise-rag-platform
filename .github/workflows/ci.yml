@@ -143,6 +143,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           LANGCHAIN_TRACING_V2: true
           LANGCHAIN_ENDPOINT: https://api.smith.langchain.com
           LANGCHAIN_PROJECT: agent-python-ci
