@@ -3,7 +3,7 @@ import operator
 import os
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor, ToolInvocation
@@ -77,7 +77,7 @@ def delete_database_records(table: str, condition: str):
     return f"✅ EXECUTED: Deleted records from {table} WHERE {condition}"
 
 # Safe tools that don't require approval
-search = DuckDuckGoSearchRun()
+search = TavilySearchResults(max_results=5)
 
 # All tools (both safe and requiring approval)
 tools = [search, buy_stock, send_email, delete_database_records]

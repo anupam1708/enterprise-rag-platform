@@ -215,7 +215,7 @@ async def run_multi_agent_endpoint(request: MultiAgentRequest):
     This endpoint routes requests through a hierarchical agent system:
     
     - **Supervisor**: Routes tasks to specialized workers (never calls tools)
-    - **Research Agent**: Web search, fact-finding (DuckDuckGo)
+    - **Research Agent**: Web search, fact-finding (Tavily)
     - **Quantitative Agent**: Stock analysis, calculations (yfinance, pandas)
     - **Writer Agent**: Formats final response (no tools, pure LLM)
     

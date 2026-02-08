@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.tools import DuckDuckGoSearchRun # <--- 1. Import this
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # 1. Setup
 load_dotenv()
@@ -14,7 +14,7 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 # The docstring is CRITICAL. The AI reads it to know WHEN to use this tool.
 
 # Initialize the Search Tool
-search = DuckDuckGoSearchRun()
+search = TavilySearchResults(max_results=5)
 
 @tool
 def get_current_time():
@@ -29,7 +29,7 @@ def count_letters(text: str):
 @tool
 def web_search(query: str):
     """Search the internet for real-time information, current prices, latest news, weather, sports scores, stock/crypto prices, or any facts that change frequently. Use this tool whenever you need up-to-date information that you don't already know."""
-    return search.run(query)
+    return search.invoke(query)
 
 tools = [get_current_time, count_letters, web_search]
 
