@@ -77,7 +77,7 @@ def delete_database_records(table: str, condition: str):
     return f"✅ EXECUTED: Deleted records from {table} WHERE {condition}"
 
 # Safe tools that don't require approval
-search = TavilySearchResults(max_results=5)
+search = TavilySearchResults(max_results=5, search_depth="advanced", time_range="month")
 
 # All tools (both safe and requiring approval)
 tools = [search, buy_stock, send_email, delete_database_records]

@@ -76,7 +76,7 @@ class MultiAgentState(TypedDict):
 # ============================================================
 
 # --- Research Agent Tools ---
-search_tool = TavilySearchResults(max_results=5)
+search_tool = TavilySearchResults(max_results=5, search_depth="advanced", time_range="month")
 
 @tool
 def web_search(query: str) -> str:

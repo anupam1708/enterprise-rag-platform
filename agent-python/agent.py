@@ -14,7 +14,7 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 # The docstring is CRITICAL. The AI reads it to know WHEN to use this tool.
 
 # Initialize the Search Tool
-search = TavilySearchResults(max_results=5)
+search = TavilySearchResults(max_results=5, search_depth="advanced", time_range="month")
 
 @tool
 def get_current_time():
