@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Enterprise RAG Platform',
   description: 'AI-powered compliance and knowledge management system',
+  icons: {
+    icon: '/icon.svg',
+  },
 }
 
 export default function RootLayout({
