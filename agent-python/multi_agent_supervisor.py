@@ -85,9 +85,11 @@ def web_search(query: str) -> str:
     Args:
         query: The search query to find information about
     """
-    logger.info(f"🔍 Research Agent: Searching for '{query}'")
+    current_date = datetime.now().strftime("%B %Y")
+    dated_query = f"{query} {current_date}"
+    logger.info(f"🔍 Research Agent: Searching for '{dated_query}'")
     try:
-        results = search_tool.invoke(query)
+        results = search_tool.invoke(dated_query)
         if isinstance(results, list):
             formatted = "\n\n".join(
                 f"Source: {r.get('url', 'N/A')}\n{r.get('content', '')}"
