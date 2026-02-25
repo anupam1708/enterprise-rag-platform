@@ -3,6 +3,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: compliance_db
+    restart: always
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
@@ -17,6 +18,7 @@ services:
   python-agent:
     build: ./agent-python  # <--- Points to your Python folder
     container_name: python_agent
+    restart: always
     ports:
       - "8000:8000"
     env_file:
@@ -75,6 +77,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: https://hnsworld.ai
     container_name: rag_frontend
+    restart: always
     ports:
       - "3000:3000"
     depends_on:
