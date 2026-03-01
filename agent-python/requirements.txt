@@ -11,6 +11,7 @@ langgraph==0.2.20
 langgraph-checkpoint-postgres>=1.0.0
 psycopg[binary,pool]>=3.1.18
 tavily-python>=0.3.0
+exa-py>=1.0.0
 langsmith>=0.1.0
 
 # Multi-Agent Supervisor Dependencies

@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.tools.tavily_search import TavilySearchResults
+from hybrid_search import hybrid_web_search
 
 # 1. Setup
 load_dotenv()
@@ -12,9 +12,6 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # 2. Define Tools (The "Actions")
 # The docstring is CRITICAL. The AI reads it to know WHEN to use this tool.
-
-# Initialize the Search Tool
-search = TavilySearchResults(max_results=5, search_depth="advanced", time_range="month")
 
 @tool
 def get_current_time():
@@ -26,12 +23,7 @@ def count_letters(text: str):
     """Returns the length of a word or sentence."""
     return len(text)
 
-@tool
-def web_search(query: str):
-    """Search the internet for real-time information, current prices, latest news, weather, sports scores, stock/crypto prices, or any facts that change frequently. Use this tool whenever you need up-to-date information that you don't already know."""
-    return search.invoke(query)
-
-tools = [get_current_time, count_letters, web_search]
+tools = [get_current_time, count_letters, hybrid_web_search]
 
 # 3. Create the Prompt
 prompt = ChatPromptTemplate.from_messages([

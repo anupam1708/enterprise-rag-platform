@@ -46,7 +46,7 @@ from datetime import datetime
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from langchain_community.tools.tavily_search import TavilySearchResults
+from hybrid_search import hybrid_web_search
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor, ToolInvocation
@@ -76,29 +76,6 @@ class MultiAgentState(TypedDict):
 # ============================================================
 
 # --- Research Agent Tools ---
-search_tool = TavilySearchResults(max_results=5, search_depth="advanced", time_range="month")
-
-@tool
-def web_search(query: str) -> str:
-    """Search the web for current information on any topic.
-
-    Args:
-        query: The search query to find information about
-    """
-    current_date = datetime.now().strftime("%B %Y")
-    dated_query = f"{query} {current_date}"
-    logger.info(f"🔍 Research Agent: Searching for '{dated_query}'")
-    try:
-        results = search_tool.invoke(dated_query)
-        if isinstance(results, list):
-            formatted = "\n\n".join(
-                f"Source: {r.get('url', 'N/A')}\n{r.get('content', '')}"
-                for r in results
-            )
-            return f"Search Results:\n{formatted}"
-        return f"Search Results:\n{results}"
-    except Exception as e:
-        return f"Search failed: {str(e)}"
 
 @tool
 def scrape_summary(url: str) -> str:
@@ -239,7 +216,7 @@ quant_model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 writer_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)  # More creative for writing
 
 # Tool executors for specialized agents
-research_tools = [web_search, scrape_summary]
+research_tools = [hybrid_web_search, scrape_summary]
 quant_tools = [get_stock_price, get_stock_history, calculate_metrics]
 
 research_model_with_tools = research_model.bind_tools(research_tools)

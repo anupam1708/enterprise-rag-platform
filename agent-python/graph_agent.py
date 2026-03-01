@@ -3,7 +3,7 @@ import operator
 import os
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from langchain_community.tools.tavily_search import TavilySearchResults
+from hybrid_search import hybrid_web_search
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor, ToolInvocation
@@ -76,11 +76,8 @@ def delete_database_records(table: str, condition: str):
     # In production, this would execute actual database operations
     return f"✅ EXECUTED: Deleted records from {table} WHERE {condition}"
 
-# Safe tools that don't require approval
-search = TavilySearchResults(max_results=5, search_depth="advanced", time_range="month")
-
 # All tools (both safe and requiring approval)
-tools = [search, buy_stock, send_email, delete_database_records]
+tools = [hybrid_web_search, buy_stock, send_email, delete_database_records]
 tool_executor = ToolExecutor(tools)
 
 # High-risk tools that require approval (HITL)

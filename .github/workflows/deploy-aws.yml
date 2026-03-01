@@ -67,6 +67,7 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
         run: |
           echo "$EC2_SSH_KEY" > private_key.pem
           chmod 600 private_key.pem
@@ -118,6 +119,7 @@ jobs:
           LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
           LANGCHAIN_PROJECT=enterprise-rag-platform
           TAVILY_API_KEY=${TAVILY_API_KEY}
+          EXA_API_KEY=${EXA_API_KEY}
           ENVEOF
 
           cat > frontend.env << ENVEOF
