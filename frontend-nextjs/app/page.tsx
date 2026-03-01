@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import ChatInterface from '@/components/ChatInterface'
+import HITLChat from '@/components/HITLChat'
 import DocumentUpload from '@/components/DocumentUpload'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'upload'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'hitl' | 'upload'>('chat')
   const { user, logout } = useAuth()
 
   return (
@@ -50,6 +51,16 @@ export default function Home() {
               💬 Chat
             </button>
             <button
+              onClick={() => setActiveTab('hitl')}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                activeTab === 'hitl'
+                  ? 'bg-amber-600 text-white shadow-lg'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              🔐 HITL Agent
+            </button>
+            <button
               onClick={() => setActiveTab('upload')}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 activeTab === 'upload'
@@ -63,7 +74,9 @@ export default function Home() {
 
           {/* Content */}
           <div className="bg-gray-800 rounded-xl shadow-2xl p-6">
-            {activeTab === 'chat' ? <ChatInterface /> : <DocumentUpload />}
+            {activeTab === 'chat' && <ChatInterface />}
+            {activeTab === 'hitl' && <HITLChat />}
+            {activeTab === 'upload' && <DocumentUpload />}
           </div>
         </div>
       </main>
